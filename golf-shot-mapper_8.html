@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Golf Shot Mapper</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg:     #0b180b;
+  --panel:  #101e10;
+  --card:   #152315;
+  --border: #263d26;
+  --green:  #4a8a4a;
+  --bright: #6ebf6e;
+  --gold:   #d4a843;
+  --goldhv: #f0c96a;
+  --red:    #c0392b;
+  --text:   #eeeae0;
+  --dim:    #7a9a7a;
+  --muted:  #3d5c3d;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow: hidden; }
+
+/* ─── SCREEN STACK ─── */
+/* Every "screen" is fixed full-viewport, shown/hidden via display */
+.screen { position: fixed; inset: 0; display: none; flex-direction: column; background: var(--bg); z-index: 10; }
+.screen.show { display: flex; }
+
+/* ─── WELCOME SCREEN ─── */
+#scr-welcome {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(160deg, #0b1e0b 0%, #0e2a0e 100%);
+}
+.wc { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px 28px; max-width: 420px; width: 100%; }
+.wc-icon { font-size: 44px; text-align: center; margin-bottom: 14px; }
+.wc-title { font-family: 'Bebas Neue', cursive; font-size: 40px; letter-spacing: 6px; color: var(--gold); text-align: center; margin-bottom: 4px; }
+.wc-sub { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-align: center; margin-bottom: 24px; }
+.step-list { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 10px; }
+.step-row { display: flex; gap: 12px; align-items: flex-start; font-size: 13px; color: var(--dim); line-height: 1.5; }
+.step-n { font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--gold); line-height: 1.1; min-width: 18px; }
+
+/* ─── MAP SCREEN ─── */
+#scr-map { flex-direction: column; }
+
+#topbar {
+  flex-shrink: 0;
+  height: 52px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  z-index: 20;
+}
+#topbar-logo { font-family: 'Bebas Neue', cursive; font-size: 18px; letter-spacing: 3px; color: var(--gold); flex-shrink: 0; }
+#topbar-logo span { color: var(--bright); }
+
+#search-box { position: relative; flex: 1; min-width: 0; }
+#search-input {
+  width: 100%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 7px 10px;
+  outline: none;
+}
+#search-input:focus { border-color: var(--green); }
+#search-input::placeholder { color: var(--muted); }
+#search-drop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  z-index: 9999;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  display: none;
+}
+#search-drop.open { display: block; }
+.dr { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid rgba(38,61,38,0.5); }
+.dr:last-child { border: none; }
+.dr:hover { background: rgba(255,255,255,0.05); }
+.dr-name { font-size: 13px; color: var(--text); }
+.dr-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 1px; }
+.dr-alt .dr-name { color: var(--gold); }
+
+#find-btn { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; background: var(--gold); color: var(--bg); border: none; border-radius: 6px; padding: 7px 12px; cursor: pointer; font-weight: 700; flex-shrink: 0; }
+#find-btn:hover { background: var(--goldhv); }
+#sum-btn { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; background: transparent; border: 1px solid var(--border); color: var(--dim); border-radius: 6px; padding: 7px 10px; cursor: pointer; flex-shrink: 0; display: none; }
+#sum-btn:hover { border-color: var(--bright); color: var(--text); }
+
+/* Hole strip */
+#holestrip {
+  flex-shrink: 0;
+  height: 42px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#holestrip::-webkit-scrollbar { display: none; }
+#holestrip.show { display: flex; }
+.hp { width: 28px; height: 28px; flex-shrink: 0; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: 'Bebas Neue', cursive; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; }
+.hp.done { background: rgba(74,138,74,0.2); border-color: var(--green); color: var(--bright); }
+.hp.cur { background: var(--gold); border-color: var(--gold); color: var(--bg); }
+
+/* Map */
+#map-wrap { flex: 1; position: relative; min-height: 0; }
+#map { width: 100%; height: 100%; }
+.leaflet-control-attribution { display: none !important; }
+.leaflet-control-zoom a { background: var(--card) !important; color: var(--text) !important; border-color: var(--border) !important; }
+
+/* Map hint banner */
+#map-hint {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  background: rgba(11,24,11,0.92); border: 1px solid var(--gold);
+  color: var(--gold); font-family: 'DM Mono', monospace;
+  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 7px 16px; border-radius: 20px; z-index: 500;
+  pointer-events: none; display: none; white-space: nowrap;
+}
+
+/* Bottom wizard */
+#wizard {
+  flex-shrink: 0;
+  background: var(--panel);
+  border-top: 2px solid var(--border);
+  overflow-y: auto;
+  max-height: 55vw;
+  min-height: 140px;
+  display: none;
+}
+#wizard.show { display: block; }
+
+.ws { display: none; padding: 14px 14px 16px; }
+.ws.cur { display: block; }
+.ws-eye { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text); font-weight: 700; margin-bottom: 3px; }
+.ws-title { font-family: 'Bebas Neue', cursive; font-size: 24px; letter-spacing: 3px; color: var(--text); line-height: 1; margin-bottom: 12px; }
+.ws-title .g { color: var(--gold); }
+
+/* Y/N big buttons */
+.yn { display: flex; gap: 10px; margin-top: 2px; }
+.yn-y, .yn-n, .yn-na {
+  flex: 1; font-family: 'Bebas Neue', cursive; font-size: 26px; letter-spacing: 2px;
+  border: none; border-radius: 8px; padding: 14px 8px; cursor: pointer; transition: transform 0.1s;
+}
+.yn-y { background: rgba(74,138,74,0.25); color: var(--bright); border: 1px solid rgba(74,138,74,0.5); }
+.yn-n { background: rgba(192,57,43,0.2); color: #e74c3c; border: 1px solid rgba(192,57,43,0.4); }
+.yn-na { background: rgba(255,255,255,0.05); color: var(--dim); border: 1px solid var(--border); font-size: 18px; }
+.yn-y:hover { transform: scale(1.02); }
+.yn-n:hover { transform: scale(1.02); }
+
+/* Miss compass */
+.compass { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; max-width: 220px; }
+.cb {
+  font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  padding: 11px 4px; border: 1px solid var(--border); border-radius: 6px; background: transparent;
+  color: var(--muted); cursor: pointer; text-align: center; transition: all 0.12s;
+}
+.cb:hover, .cb.sel { background: rgba(212,168,67,0.2); border-color: var(--gold); color: var(--gold); }
+.cb.mid { background: rgba(74,138,74,0.12); border-color: rgba(74,138,74,0.3); color: var(--bright); font-size: 16px; cursor: default; }
+
+/* Hole setup controls */
+.setup-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.setup-col { flex: 1; min-width: 100px; }
+.ctl-lbl { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text); font-weight: 700; margin-bottom: 5px; }
+.seg { display: flex; gap: 4px; }
+.seg-btn { flex: 1; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; padding: 8px 0; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--text); cursor: pointer; text-align: center; transition: all 0.12s; }
+.seg-btn.on { background: rgba(212,168,67,0.2); border-color: var(--gold); color: var(--gold); }
+.stepper { display: flex; align-items: center; gap: 10px; }
+.st-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; transition: border-color 0.12s; }
+.st-btn:hover { border-color: var(--gold); color: var(--gold); }
+.st-val { font-family: 'Bebas Neue', cursive; font-size: 36px; color: var(--gold); min-width: 36px; text-align: center; letter-spacing: 2px; line-height: 1; }
+
+/* Distance display */
+.dist-wrap { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 8px; }
+.dist-num { font-family: 'Bebas Neue', cursive; font-size: 52px; color: var(--gold); letter-spacing: 3px; line-height: 1; }
+.dist-unit { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); font-weight: 700; letter-spacing: 1px; }
+.click-dots { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+.cd { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--border); transition: all 0.2s; }
+.cd.done { background: var(--gold); border-color: var(--gold); }
+.cd.active { border-color: var(--bright); box-shadow: 0 0 5px var(--bright); }
+.cd-sep { height: 2px; width: 20px; background: var(--border); }
+.cd-sep.done { background: var(--gold); }
+.map-tip { background: rgba(212,168,67,0.1); border: 1px solid rgba(212,168,67,0.3); border-radius: 6px; padding: 9px 12px; margin-bottom: 10px; font-size: 13px; color: var(--text); font-weight: 600; line-height: 1.5; }
+.map-tip strong { color: var(--gold); }
+.sel-wrap { margin-top: 8px; }
+.sel-lbl { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text); font-weight: 700; margin-bottom: 4px; }
+select.club-sel { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 10px; outline: none; }
+select.club-sel option { background: var(--card); }
+
+/* Wizard text — bright & readable */
+.ws-eye { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 3px; }
+.ws-title { font-family: 'Bebas Neue', cursive; font-size: 24px; letter-spacing: 3px; color: #ffffff; line-height: 1; margin-bottom: 12px; }
+.ws-title .g { color: var(--gold); }
+.ctl-lbl { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #ffffff; font-weight: 700; margin-bottom: 5px; }
+.yn-question { font-size: 15px; color: #ffffff; font-weight: 600; margin-bottom: 10px; }
+.dist-lbl { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #ffffff; font-weight: 700; }
+.sel-lbl { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #ffffff; font-weight: 700; margin-bottom: 5px; }
+.map-tip { background: rgba(212,168,67,0.12); border: 1px solid rgba(212,168,67,0.35); border-radius: 6px; padding: 9px 12px; margin-bottom: 10px; font-size: 13px; color: #ffffff; font-weight: 500; line-height: 1.5; }
+.map-tip strong { color: var(--gold); font-weight: 700; }
+.done-card { background: rgba(255,255,255,0.05); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; font-size: 13px; color: #ffffff; font-weight: 500; line-height: 1.9; }
+
+/* Holes selector on welcome */
+.holes-pick { display: flex; gap: 10px; margin-bottom: 20px; }
+.holes-opt { flex: 1; font-family: 'Bebas Neue', cursive; font-size: 28px; letter-spacing: 3px; border: 2px solid var(--border); border-radius: 10px; padding: 14px 8px; background: transparent; color: var(--dim); cursor: pointer; transition: all 0.15s; text-align: center; }
+.holes-opt:hover { border-color: var(--gold); color: var(--gold); }
+.holes-opt.picked { border-color: var(--gold); background: rgba(212,168,67,0.15); color: var(--gold); }
+.act-row { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.btn { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; border: none; border-radius: 6px; padding: 10px 14px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; }
+.btn-pri { background: var(--gold); color: var(--bg); font-weight: 700; flex: 1; justify-content: center; }
+.btn-pri:hover { background: var(--goldhv); }
+.btn-pri:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-sec { background: transparent; border: 1px solid var(--border); color: var(--text); font-weight: 600; }
+.btn-sec:hover { border-color: var(--bright); color: var(--text); }
+.btn-full { width: 100%; justify-content: center; padding: 13px; font-size: 13px; }
+
+/* Hole done mini summary */
+.done-card { background: rgba(255,255,255,0.05); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; font-size: 13px; color: #ffffff; font-weight: 500; line-height: 1.9; }
+
+/* ─── SUMMARY SCREEN ─── */
+#scr-summary { overflow-y: auto; padding: 16px; }
+.sum-hdr { font-family: 'Bebas Neue', cursive; font-size: 32px; letter-spacing: 4px; color: var(--gold); margin-bottom: 2px; }
+.sum-sub { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #ffffff; font-weight: 700; margin-bottom: 14px; }
+.sum-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.ss { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; text-align: center; flex: 1; min-width: 60px; }
+.ss-v { font-family: 'Bebas Neue', cursive; font-size: 22px; color: var(--gold); letter-spacing: 2px; line-height: 1; }
+.ss-l { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: #ffffff; font-weight: 700; margin-top: 2px; }
+table.st { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+table.st th { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: #ffffff; font-weight: 700; padding: 6px 6px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+table.st td { padding: 7px 6px; border-bottom: 1px solid rgba(38,61,38,0.4); color: #ffffff; font-weight: 500; }
+table.st .n { font-family: 'Bebas Neue', cursive; font-size: 17px; letter-spacing: 1px; }
+.g { color: var(--bright); } .r { color: #e74c3c; } .au { color: var(--gold); }
+.club-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.cg-item { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; text-align: center; }
+.cg-club { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.cg-dist { font-family: 'Bebas Neue', cursive; font-size: 24px; color: var(--gold); letter-spacing: 2px; line-height: 1; }
+.cg-shots { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     SCREEN 1: WELCOME
+══════════════════════════════════════ -->
+<div id="scr-welcome" class="screen show">
+  <div class="wc">
+    <div class="wc-icon">⛳</div>
+    <div class="wc-title">ShotMap</div>
+    <div class="wc-sub">Post-Round Distance Tracker</div>
+    <div class="step-list">
+      <div class="step-row"><div class="step-n">1</div><div>Search for your course — results appear as you type</div></div>
+      <div class="step-row"><div class="step-n">2</div><div>Tap Y/N questions for each hole (fairway, GIR)</div></div>
+      <div class="step-row"><div class="step-n">3</div><div>Tap two spots on the satellite map to measure shot distance</div></div>
+      <div class="step-row"><div class="step-n">4</div><div>Review club averages and full round summary</div></div>
+    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:10px;text-align:center">How many holes?</div>
+    <div class="holes-pick">
+      <button class="holes-opt" id="opt-9" onclick="pickHoles(9)">9 Holes</button>
+      <button class="holes-opt picked" id="opt-18" onclick="pickHoles(18)">18 Holes</button>
+    </div>
+    <button class="btn btn-pri btn-full" onclick="openMap()">Open Map →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 2: MAP + WIZARD
+══════════════════════════════════════ -->
+<div id="scr-map" class="screen">
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <div id="topbar-logo">⛳ SHOT<span>MAP</span></div>
+    <div id="search-box">
+      <input id="search-input" type="text" placeholder="Search course…" autocomplete="off"
+             oninput="onType()" onkeydown="onKey(event)">
+      <div id="search-drop"></div>
+    </div>
+    <button id="find-btn" onclick="doSearch()">Find</button>
+    <button id="sum-btn" onclick="openSummary()">Summary</button>
+  </div>
+
+  <!-- Hole number strip -->
+  <div id="holestrip"></div>
+
+  <!-- Map -->
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="map-hint">TAP 2 POINTS · DRAG TO ADJUST</div>
+  </div>
+
+  <!-- Wizard panel -->
+  <div id="wizard">
+
+    <!-- STEP: holes (asked once at start) -->
+    <div class="ws" id="ws-holes">
+      <div class="ws-eye">Round Setup</div>
+      <div class="ws-title">How Many <span class="g">Holes?</span></div>
+      <div class="yn">
+        <button class="yn-y" onclick="setHoles(18)">18 Holes</button>
+        <button class="yn-n" style="background:rgba(212,168,67,0.15);color:var(--gold);border:1px solid rgba(212,168,67,0.4)" onclick="showStep('which-nine')">9 Holes</button>
+      </div>
+    </div>
+
+    <!-- STEP: which-nine -->
+    <div class="ws" id="ws-which-nine">
+      <div class="ws-eye">Round Setup · 9 Holes</div>
+      <div class="ws-title">Which <span class="g">Nine?</span></div>
+      <div class="yn">
+        <button class="yn-y" onclick="setHoles(9, 1)">Front 9<br><span style="font-size:14px;letter-spacing:1px">Holes 1–9</span></button>
+        <button class="yn-n" style="background:rgba(212,168,67,0.15);color:var(--gold);border:1px solid rgba(212,168,67,0.4)" onclick="setHoles(9, 10)">Back 9<br><span style="font-size:14px;letter-spacing:1px">Holes 10–18</span></button>
+      </div>
+    </div>
+
+    <!-- STEP: hole-setup -->
+    <div class="ws" id="ws-setup">
+      <div class="ws-eye">Hole Setup</div>
+      <div class="ws-title">Hole <span class="g" id="s-hnum">1</span></div>
+      <div class="setup-row">
+        <div class="setup-col">
+          <div class="ctl-lbl">Par</div>
+          <div class="seg">
+            <button class="seg-btn" id="p3" onclick="setPar(3)">Par 3</button>
+            <button class="seg-btn on" id="p4" onclick="setPar(4)">Par 4</button>
+            <button class="seg-btn" id="p5" onclick="setPar(5)">Par 5</button>
+          </div>
+        </div>
+        <div class="setup-col">
+          <div class="ctl-lbl">Score</div>
+          <div class="stepper">
+            <button class="st-btn" onclick="adjScore(-1)">−</button>
+            <div class="st-val" id="s-score">4</div>
+            <button class="st-btn" onclick="adjScore(1)">+</button>
+          </div>
+        </div>
+        <div class="setup-col">
+          <div class="ctl-lbl">Putts</div>
+          <div class="seg">
+            <button class="seg-btn" id="pt1" onclick="setPutts(1)">1</button>
+            <button class="seg-btn on" id="pt2" onclick="setPutts(2)">2</button>
+            <button class="seg-btn" id="pt3" onclick="setPutts(3)">3</button>
+            <button class="seg-btn" id="pt4" onclick="setPutts(4)">4+</button>
+          </div>
+        </div>
+      </div>
+      <div class="act-row">
+        <button class="btn btn-sec" id="back-btn" onclick="goBack()" style="display:none">← Back</button>
+        <button class="btn btn-pri" onclick="nextFromSetup()">Next →</button>
+      </div>
+    </div>
+
+    <!-- STEP: fairway -->
+    <div class="ws" id="ws-fairway">
+      <div class="ws-eye">Hole <span class="hnum">1</span> · Tee Shot</div>
+      <div class="ws-title">Hit the <span class="g">Fairway?</span></div>
+      <div class="sel-wrap" id="tee-club-wrap" style="margin-top:0;margin-bottom:12px">
+        <div class="sel-lbl">Tee Club</div>
+        <select class="club-sel" id="tee-club">
+          <option value="">— Select —</option>
+          <option>Driver</option><option>3 wood</option><option>5 wood</option>
+          <option>2 iron</option><option>3 iron</option><option>4 iron</option>
+          <option>5 iron</option><option>6 iron</option><option>7 iron</option>
+          <option>Hybrid</option>
+        </select>
+      </div>
+      <div class="yn">
+        <button class="yn-y" onclick="ansFairway(true)">✓ Yes</button>
+        <button class="yn-n" onclick="ansFairway(false)">✗ No</button>
+      </div>
+    </div>
+
+    <!-- STEP: fwy-miss -->
+    <div class="ws" id="ws-fwy-miss">
+      <div class="ws-eye">Hole <span class="hnum">1</span> · Miss Direction</div>
+      <div class="ws-title">Where'd it <span class="g">Go?</span></div>
+      <div class="compass">
+        <div></div><button class="cb" onclick="setFwyDir('long')">Long</button><div></div>
+        <button class="cb" onclick="setFwyDir('left')">Left</button>
+        <button class="cb mid">⛳</button>
+        <button class="cb" onclick="setFwyDir('right')">Right</button>
+        <div></div><button class="cb" onclick="setFwyDir('short')">Short</button><div></div>
+      </div>
+    </div>
+
+    <!-- STEP: tee-dist -->
+    <div class="ws" id="ws-tee-dist">
+      <div class="ws-eye">Hole <span class="hnum">1</span> · Tee Shot Distance</div>
+      <div class="map-tip"><strong>1st tap</strong> — tee box &nbsp;·&nbsp; <strong>2nd tap</strong> — where it landed &nbsp;·&nbsp; <strong>drag</strong> either pin to adjust</div>
+      <div class="click-dots">
+        <div class="cd active" id="td1"></div>
+        <div class="cd-sep" id="ts1"></div>
+        <div class="cd" id="td2"></div>
+      </div>
+      <div class="dist-lbl">Distance</div>
+      <div class="dist-wrap"><div class="dist-num" id="tee-dist">—</div><div class="dist-unit">yards</div></div>
+      <div class="act-row">
+        <button class="btn btn-sec" onclick="skipTee()">Skip</button>
+        <button class="btn btn-pri" id="confirm-tee" onclick="confirmTee()" disabled>Confirm →</button>
+      </div>
+    </div>
+
+    <!-- STEP: gir -->
+    <div class="ws" id="ws-gir">
+      <div class="ws-eye">Hole <span class="hnum">1</span> · Green</div>
+      <div class="ws-title">Hit the <span class="g">Green?</span></div>
+      <div class="yn">
+        <button class="yn-y" onclick="ansGIR(true)">✓ GIR</button>
+        <button class="yn-n" onclick="ansGIR(false)">✗ Missed</button>
+      </div>
+    </div>
+
+    <!-- STEP: gir-miss -->
+    <div class="ws" id="ws-gir-miss">
+      <div class="ws-eye">Hole <span class="hnum">1</span> · Green Miss</div>
+      <div class="ws-title">Where'd it <span class="g">Miss?</span></div>
+      <div class="compass">
+        <div></div><button class="cb" onclick="setGirDir('long')">Long</button><div></div>
+        <button class="cb" onclick="setGirDir('left')">Left</button>
+        <button class="cb mid">🏌</button>
+        <button class="cb" onclick="setGirDir('right')">Right</button>
+        <div></div><button class="cb" onclick="setGirDir('short')">Short</button><div></div>
+      </div>
+    </div>
+
+    <!-- STEP: app-dist -->
+    <div class="ws" id="ws-app-dist">
+      <div class="ws-eye">Hole <span class="hnum">1</span> · Approach Distance</div>
+      <div class="map-tip"><strong>1st tap</strong> — where you played from &nbsp;·&nbsp; <strong>2nd tap</strong> — where it landed &nbsp;·&nbsp; <strong>drag</strong> to adjust</div>
+      <div class="click-dots">
+        <div class="cd active" id="ad1"></div>
+        <div class="cd-sep" id="as1"></div>
+        <div class="cd" id="ad2"></div>
+      </div>
+      <div class="dist-lbl">Distance</div>
+      <div class="dist-wrap"><div class="dist-num" id="app-dist">—</div><div class="dist-unit">yards</div></div>
+      <div class="sel-wrap">
+        <div class="sel-lbl">Club Used</div>
+        <select class="club-sel" id="app-club">
+          <option value="">— Select —</option>
+          <option>Driver</option><option>3 wood</option><option>3 iron</option>
+          <option>4 iron</option><option>5 iron</option><option>6 iron</option>
+          <option>7 iron</option><option>8 iron</option><option>9 iron</option>
+          <option>Pitching Wedge</option><option>A Wedge</option>
+          <option>54 Degree</option><option>58 Degree</option>
+        </select>
+      </div>
+      <div class="act-row">
+        <button class="btn btn-sec" onclick="skipApp()">Skip</button>
+        <button class="btn btn-pri" id="confirm-app" onclick="confirmApp()" disabled>Confirm →</button>
+      </div>
+    </div>
+
+    <!-- STEP: updown -->
+    <div class="ws" id="ws-updown">
+      <div class="ws-eye">Hole <span class="hnum">1</span> · Short Game</div>
+      <div class="ws-title">Up &amp; <span class="g">Down?</span></div>
+      <div class="yn">
+        <button class="yn-y" style="font-size:20px;padding:12px" onclick="ansUD(true)">✓ Yes</button>
+        <button class="yn-n" style="font-size:20px;padding:12px" onclick="ansUD(false)">✗ No</button>
+        <button class="yn-na" onclick="ansUD(null)">N/A</button>
+      </div>
+    </div>
+
+    <!-- STEP: on2 (par 5 only) -->
+    <div class="ws" id="ws-on2">
+      <div class="ws-eye">Hole <span class="hnum">1</span> · Par 5</div>
+      <div class="ws-title">On in <span class="g">2?</span></div>
+      <div class="yn">
+        <button class="yn-y" onclick="ansOn2(true)">✓ Yes</button>
+        <button class="yn-n" onclick="ansOn2(false)">✗ No</button>
+      </div>
+    </div>
+
+    <!-- STEP: done -->
+    <div class="ws" id="ws-done">
+      <div class="ws-eye">Hole <span class="hnum">1</span> Complete</div>
+      <div class="done-card" id="done-mini"></div>
+      <div class="act-row">
+        <button class="btn btn-sec" onclick="redoHole()">Redo</button>
+        <button class="btn btn-pri" id="btn-next-hole" onclick="goNextHole()">Next Hole →</button>
+        <button class="btn btn-pri" id="btn-finish" onclick="openSummary()" style="display:none">Finish Round ✓</button>
+      </div>
+    </div>
+
+  </div><!-- /wizard -->
+</div><!-- /scr-map -->
+
+<!-- ══════════════════════════════════════
+     SCREEN 3: SUMMARY
+══════════════════════════════════════ -->
+<div id="scr-summary" class="screen">
+  <div class="sum-hdr">Round Summary</div>
+  <div class="sum-sub" id="sum-sub">—</div>
+  <div class="sum-stats" id="sum-stats"></div>
+  <table class="st">
+    <thead><tr>
+      <th>#</th><th>Par</th><th>Score</th><th>Tee Club</th><th>FWY</th><th>GIR</th>
+      <th>Miss</th><th>On-2</th><th>Tee yds</th><th>App yds</th><th>App Club</th><th>U&D</th>
+    </tr></thead>
+    <tbody id="sum-tbody"></tbody>
+  </table>
+  <div class="club-grid" id="sum-clubs"></div>
+  <div class="act-row">
+    <button class="btn btn-sec" style="flex:1;justify-content:center" onclick="closeSummary()">← Map</button>
+    <button class="btn btn-pri" style="flex:1;justify-content:center" onclick="doExport()">Export CSV</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" style="position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-16px);background:var(--card);border:1px solid var(--bright);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;letter-spacing:1px;padding:9px 18px;border-radius:30px;z-index:9999;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap"></div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const S = {
+  holeNum: 1,
+  startHole: 1,
+  totalHoles: 18,
+  courseName: '',
+  courseDate: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+  holes: [],          // saved hole objects
+  h: freshHole(1),   // working hole
+  measuring: null,   // 'tee' | 'app'
+  pts: [],           // click points for current measurement
+  mapMarkers: [],    // leaflet layers to clear
+  mapLine: null,
+};
+
+function freshHole(n) {
+  return { num:n, par:4, score:4, putts:2, teeClub:'', fwyHit:null, fwyDir:null, teeYds:null, teeLandingLatlng:null, girHit:null, girDir:null, appYds:null, appClub:'', on2Hit:null, upDown:null };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LEAFLET MAP — init once
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let map;
+
+function initMap() {
+  if (map) return;
+  map = L.map('map', { center:[40.555,-111.877], zoom:15, zoomControl:true, attributionControl:false });
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { maxZoom:20 }).addTo(map);
+  map.on('click', mapClick);
+  map.on('mousemove', mapMove);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SCREEN SWITCHING
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('show'));
+  document.getElementById(id).classList.add('show');
+  if (id === 'scr-map') {
+    setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+  }
+}
+
+function openMap() {
+  showScreen('scr-map');
+  initMap();
+  document.getElementById('wizard').classList.add('show');
+  // Don't build strip yet — wait until we know 9 or 18
+  showStep('holes');
+}
+
+function pickHoles(n) {
+  S.totalHoles = n;
+  document.getElementById('opt-9').className = 'holes-opt' + (n===9?' picked':'');
+  document.getElementById('opt-18').className = 'holes-opt' + (n===18?' picked':'');
+}
+
+function setHoles(n, startHole) {
+  S.totalHoles = n;
+  S.startHole = startHole || 1;
+  S.holeNum = S.startHole;
+  S.h = freshHole(S.holeNum);
+  buildStrip();
+  loadSetupUI();
+  showStep('setup');
+}
+
+function openSummary() {
+  buildSummary();
+  showScreen('scr-summary');
+}
+
+function closeSummary() {
+  showScreen('scr-map');
+  setTimeout(() => map && map.invalidateSize(), 50);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SEARCH — Photon (CORS-friendly)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _results = [], _timer;
+
+function onType() {
+  clearTimeout(_timer);
+  const q = document.getElementById('search-input').value.trim();
+  if (q.length < 3) { closeDrop(); return; }
+  _timer = setTimeout(() => doSearch(q), 380);
+}
+
+function onKey(e) {
+  if (e.key === 'Enter') { clearTimeout(_timer); doSearch(); }
+  if (e.key === 'Escape') closeDrop();
+}
+
+async function doSearch(q) {
+  q = q || document.getElementById('search-input').value.trim();
+  if (!q) return;
+  const btn = document.getElementById('find-btn');
+  btn.textContent = '…';
+  try {
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q+' golf')}&limit=6&lang=en`;
+    const r = await fetch(url);
+    const d = await r.json();
+    _results = (d.features || []).filter(f => f.properties.name);
+  } catch(e) { _results = []; }
+  btn.textContent = 'Find';
+  renderDrop(q);
+}
+
+function renderDrop(q) {
+  const dd = document.getElementById('search-drop');
+  let html = _results.slice(0,5).map((f,i) => {
+    const p = f.properties;
+    const sub = [p.city, p.state, p.country].filter(Boolean).join(', ');
+    return `<div class="dr" onclick="pickResult(${i})">
+      <div class="dr-name">⛳ ${p.name}</div>
+      <div class="dr-sub">${sub}</div>
+    </div>`;
+  }).join('');
+  html += `<div class="dr dr-alt" onclick="manualCoords()">
+    <div class="dr-name">📍 Enter lat/lng manually</div>
+    <div class="dr-sub">Right-click on Google Maps → copy coords</div>
+  </div>`;
+  dd.innerHTML = html;
+  dd.classList.add('open');
+}
+
+function pickResult(i) {
+  const f = _results[i];
+  const [lng, lat] = f.geometry.coordinates;
+  map.setView([lat,lng], 17);
+  S.courseName = f.properties.name || '';
+  document.getElementById('search-input').value = S.courseName;
+  closeDrop();
+  toast('📍 ' + S.courseName);
+}
+
+function manualCoords() {
+  closeDrop();
+  const v = prompt('Paste coordinates (lat, lng):\nExample:  40.6677, -111.9227');
+  if (!v) return;
+  const [a,b] = v.split(',').map(x => parseFloat(x.trim()));
+  if (!isNaN(a) && !isNaN(b)) { map.setView([a,b], 17); toast('Map moved ✓'); }
+  else toast('Invalid — try: 40.667, -111.922');
+}
+
+function closeDrop() { document.getElementById('search-drop').classList.remove('open'); }
+document.addEventListener('click', e => { if (!e.target.closest('#search-box')) closeDrop(); });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// WIZARD STEPS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function showStep(id) {
+  document.querySelectorAll('.ws').forEach(w => w.classList.remove('cur'));
+  const el = document.getElementById('ws-' + id);
+  if (el) el.classList.add('cur');
+
+  // sync hole number refs
+  document.querySelectorAll('.hnum').forEach(e => e.textContent = S.holeNum);
+  document.getElementById('s-hnum').textContent = S.holeNum;
+
+  // map hint
+  const measuring = (id === 'tee-dist' || id === 'app-dist');
+  document.getElementById('map-hint').style.display = measuring ? 'block' : 'none';
+  if (measuring) {
+    S.measuring = id === 'tee-dist' ? 'tee' : 'app';
+  } else {
+    S.measuring = null;
+  }
+}
+
+// SETUP
+let _par=4, _score=4, _putts=2;
+
+function setPar(p) {
+  _par = p; S.h.par = p;
+  ['3','4','5'].forEach(n => document.getElementById('p'+n).className = 'seg-btn'+(n==p?' on':''));
+  _score = p; S.h.score = p;
+  document.getElementById('s-score').textContent = p;
+}
+function adjScore(d) { _score = Math.max(1,_score+d); S.h.score=_score; document.getElementById('s-score').textContent=_score; }
+function setPutts(p) {
+  _putts = p; S.h.putts = p;
+  [1,2,3,4].forEach(n => document.getElementById('pt'+n).className = 'seg-btn'+(n==p?' on':''));
+}
+function nextFromSetup() {
+  S.h.par = _par; S.h.score = _score; S.h.putts = _putts;
+  const eye = document.querySelector('#ws-fairway .ws-eye');
+  const title = document.querySelector('#ws-fairway .ws-title');
+  const teeClubWrap = document.getElementById('tee-club-wrap');
+  if (_par === 3) {
+    eye.innerHTML = 'Hole <span class="hnum">' + S.holeNum + '</span> · Tee Shot';
+    title.innerHTML = 'Hit the <span class="g">Green?</span>';
+    document.querySelector('#ws-fairway .yn-y').textContent = '✓ GIR';
+    document.querySelector('#ws-fairway .yn-n').textContent = '✗ Missed';
+    teeClubWrap.style.display = 'none';
+  } else {
+    eye.innerHTML = 'Hole <span class="hnum">' + S.holeNum + '</span> · Tee Shot';
+    title.innerHTML = 'Hit the <span class="g">Fairway?</span>';
+    document.querySelector('#ws-fairway .yn-y').textContent = '✓ Yes';
+    document.querySelector('#ws-fairway .yn-n').textContent = '✗ No';
+    teeClubWrap.style.display = 'block';
+  }
+  showStep('fairway');
+}
+
+// FAIRWAY (also serves as GIR question on par 3)
+function ansFairway(hit) {
+  const club = document.getElementById('tee-club').value;
+  if (S.h.par !== 3 && !club) { toast('Please select a tee club first'); return; }
+  S.h.teeClub = club;
+  if (S.h.par === 3) {
+    // On par 3, this step IS the GIR question — tee shot goes straight to green
+    S.h.fwyHit = null;
+    S.h.girHit = hit;
+    if (!hit) showStep('gir-miss');
+    else { S.h.girDir = null; startMeasure('app'); }
+  } else {
+    S.h.fwyHit = hit;
+    if (hit) { S.h.fwyDir = null; startMeasure('tee'); }
+    else showStep('fwy-miss');
+  }
+}
+function setFwyDir(d) {
+  S.h.fwyDir = d;
+  document.querySelectorAll('#ws-fwy-miss .cb:not(.mid)').forEach(b => b.classList.remove('sel'));
+  event.target.classList.add('sel');
+  setTimeout(() => startMeasure('tee'), 280);
+}
+
+// TEE DISTANCE
+function startMeasure(type) {
+  clearMapMeasure();
+  if (type === 'tee') {
+    document.getElementById('tee-dist').textContent = '—';
+    document.getElementById('td1').className = 'cd active';
+    document.getElementById('td2').className = 'cd';
+    document.getElementById('ts1').className = 'cd-sep';
+    document.getElementById('confirm-tee').disabled = true;
+    showStep('tee-dist');
+  } else {
+    document.getElementById('app-dist').textContent = '—';
+    document.getElementById('ad1').className = 'cd active';
+    document.getElementById('ad2').className = 'cd';
+    document.getElementById('as1').className = 'cd-sep';
+    document.getElementById('confirm-app').disabled = true;
+    showStep('app-dist');
+
+    // Pre-seed the first approach marker at where the tee shot landed
+    if (S.h.teeLandingLatlng && map) {
+      const latlng = S.h.teeLandingLatlng;
+      S.pts.push(latlng);
+      const marker = L.marker(latlng, {
+        icon: makeDotIcon('#f0c96a'),
+        draggable: true,
+        autoPan: true
+      }).addTo(map);
+      marker.on('drag', redrawLine);
+      marker.on('dragstart', () => { map.dragging.disable(); });
+      marker.on('dragend', () => { map.dragging.enable(); redrawLine(); });
+      S.dragMarkers[0] = marker;
+      S.mapMarkers.push(marker);
+      // Update dots to show first point already placed
+      document.getElementById('ad1').className = 'cd done';
+      document.getElementById('as1').className = 'cd-sep done';
+      document.getElementById('ad2').className = 'cd active';
+      S.measuring = 'app';
+    }
+  }
+}
+function skipTee() { S.h.teeYds = null; S.h.teeLandingLatlng = null; clearMapMeasure(); showStep('gir'); }
+function confirmTee() {
+  // Remember where the tee shot landed so approach can start there
+  const endMarker = S.dragMarkers[1];
+  S.h.teeLandingLatlng = endMarker ? endMarker.getLatLng() : null;
+  clearMapMeasure();
+  showStep('gir');
+}
+
+// GIR
+function ansGIR(hit) {
+  S.h.girHit = hit;
+  if (hit) { S.h.girDir = null; startMeasure('app'); }
+  else showStep('gir-miss');
+}
+function setGirDir(d) {
+  S.h.girDir = d;
+  document.querySelectorAll('#ws-gir-miss .cb:not(.mid)').forEach(b => b.classList.remove('sel'));
+  event.target.classList.add('sel');
+  setTimeout(() => startMeasure('app'), 280);
+}
+
+// APPROACH DISTANCE
+function skipApp() { S.h.appYds = null; S.h.appClub = document.getElementById('app-club').value; clearMapMeasure(); afterApp(); }
+function confirmApp() {
+  const club = document.getElementById('app-club').value;
+  if (!club) { toast('Please select a club first'); return; }
+  S.h.appClub = club;
+  clearMapMeasure();
+  afterApp();
+}
+function afterApp() {
+  if (S.h.par === 5) {
+    showStep('on2');           // always ask on-in-2 for par 5s
+  } else if (S.h.girHit === false) {
+    showStep('updown');
+  } else {
+    saveHole();
+  }
+}
+
+// ON IN 2 (par 5)
+function ansOn2(hit) {
+  S.h.on2Hit = hit;
+  if (S.h.girHit === false) showStep('updown');
+  else saveHole();
+}
+
+// UP & DOWN
+function ansUD(v) { S.h.upDown = v; saveHole(); }
+
+// SAVE & NEXT
+function saveHole() {
+  S.holes[S.holeNum - 1] = { ...S.h };
+  buildSummaryMini();
+  const lastHole = (S.startHole || 1) + S.totalHoles - 1;
+  const last = S.holeNum >= lastHole;
+  document.getElementById('btn-next-hole').style.display = last ? 'none' : 'flex';
+  document.getElementById('btn-finish').style.display = last ? 'flex' : 'none';
+  document.getElementById('sum-btn').style.display = 'flex';
+  updateStrip();
+  showStep('done');
+  toast('Hole ' + S.holeNum + ' saved ✓');
+}
+
+function buildSummaryMini() {
+  const h = S.h;
+  const d = h.score - h.par;
+  const dstr = d===0?'Even':(d>0?'+'+d:''+d);
+  const fwy = h.par >= 4 ? (h.fwyHit ? '✓ Fairway' : '✗ Fairway'+(h.fwyDir?' ('+h.fwyDir+')':'')) : 'Par 3';
+  const gir = h.girHit ? '✓ GIR' : '✗ Missed GIR'+(h.girDir?' ('+h.girDir+')':'');
+  let txt = `<b style="color:var(--text)">Par ${h.par} · Score ${h.score} (${dstr})</b><br>`;
+  if (h.teeClub) txt += `Tee: <b style="color:var(--gold)">${h.teeClub}</b> · `;
+  txt += `${fwy} · ${gir}`;
+  if (h.par === 5 && h.on2Hit !== null) txt += ` · On-2: <b style="color:var(--gold)">${h.on2Hit ? '✓' : '✗'}</b>`;
+  if (h.teeYds) txt += `<br>Tee: <b style="color:var(--gold)">${h.teeYds} yds</b>`;
+  if (h.appYds) txt += `  Approach: <b style="color:var(--gold)">${h.appYds} yds${h.appClub?' ('+h.appClub+')':''}</b>`;
+  document.getElementById('done-mini').innerHTML = txt;
+}
+
+function goNextHole() {
+  S.holeNum++;
+  S.h = S.holes[S.holeNum-1] ? {...S.holes[S.holeNum-1]} : freshHole(S.holeNum);
+  _par = S.h.par; _score = S.h.score; _putts = S.h.putts;
+  document.getElementById('app-club').value = '';
+  document.getElementById('tee-club').value = '';
+  clearMapMeasure();
+  loadSetupUI();
+  updateStrip();
+  showStep('setup');
+}
+
+function goBack() {
+  if (S.holeNum <= S.startHole) return;
+  S.holeNum--;
+  S.h = S.holes[S.holeNum-1] ? {...S.holes[S.holeNum-1]} : freshHole(S.holeNum);
+  _par = S.h.par; _score = S.h.score; _putts = S.h.putts;
+  clearMapMeasure();
+  loadSetupUI();
+  updateStrip();
+  showStep('setup');
+}
+
+function redoHole() {
+  S.h = freshHole(S.holeNum);
+  _par=4; _score=4; _putts=2;
+  loadSetupUI();
+  showStep('setup');
+}
+
+function loadSetupUI() {
+  document.getElementById('s-hnum').textContent = S.holeNum;
+  document.getElementById('s-score').textContent = S.h.score;
+  setPar(S.h.par);
+  setPutts(S.h.putts);
+  document.getElementById('back-btn').style.display = S.holeNum > S.startHole ? 'flex' : 'none';
+  const tc = document.getElementById('tee-club');
+  if (tc) tc.value = S.h.teeClub || '';
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HOLE STRIP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function buildStrip() {
+  const el = document.getElementById('holestrip');
+  el.innerHTML = '';
+  el.classList.add('show');
+  const start = S.startHole || 1;
+  const end = start + S.totalHoles - 1;
+  for (let i = start; i <= end; i++) {
+    const d = document.createElement('button');
+    d.className = 'hp' + (i === S.holeNum ? ' cur' : '') + (S.holes[i-1] ? ' done' : '');
+    d.textContent = i;
+    d.onclick = () => jumpHole(i);
+    el.appendChild(d);
+  }
+  scrollStrip();
+}
+
+function updateStrip() {
+  const start = S.startHole || 1;
+  document.querySelectorAll('.hp').forEach((el, i) => {
+    const holeNum = start + i;
+    el.className = 'hp' + (holeNum === S.holeNum ? ' cur' : '') + (S.holes[holeNum-1] ? ' done' : '');
+  });
+  scrollStrip();
+}
+
+function scrollStrip() {
+  const active = document.querySelector('.hp.cur');
+  if (active) active.scrollIntoView({inline:'center', behavior:'smooth'});
+}
+
+function jumpHole(n) {
+  S.holeNum = n;
+  S.h = S.holes[n-1] ? {...S.holes[n-1]} : freshHole(n);
+  _par = S.h.par; _score = S.h.score; _putts = S.h.putts;
+  clearMapMeasure();
+  loadSetupUI();
+  updateStrip();
+  showStep('setup');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MAP CLICKS & MEASUREMENT — draggable markers
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// Track the two actual draggable marker objects so we can update line on drag
+S.dragMarkers = [null, null];
+S.labelMarker = null;
+
+function makeDotIcon(color) {
+  return L.divIcon({
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.7);cursor:grab"></div>`,
+    iconSize:[16,16], iconAnchor:[8,8], className:''
+  });
+}
+
+function redrawLine() {
+  const a = S.dragMarkers[0], b = S.dragMarkers[1];
+  if (!a || !b) return;
+  const la = a.getLatLng(), lb = b.getLatLng();
+  const yds = metersToYards(la.distanceTo(lb));
+
+  // update polyline
+  if (S.mapLine) { S.mapLine.setLatLngs([la, lb]); }
+
+  // update label position and text
+  const mid = L.latLng((la.lat+lb.lat)/2, (la.lng+lb.lng)/2);
+  if (S.labelMarker) {
+    S.labelMarker.setLatLng(mid);
+    S.labelMarker.setIcon(L.divIcon({
+      html: `<div style="background:rgba(11,24,11,0.9);border:1px solid #d4a843;color:#d4a843;font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:2px;padding:2px 8px;border-radius:4px;white-space:nowrap">${yds} yds</div>`,
+      iconSize:null, className:''
+    }));
+  }
+
+  // update panel display
+  const id = S.measuring === 'tee' ? 'tee-dist' : 'app-dist';
+  document.getElementById(id).textContent = yds;
+  if (S.measuring === 'tee') S.h.teeYds = yds;
+  else S.h.appYds = yds;
+}
+
+function mapClick(e) {
+  if (!S.measuring) return;
+  // Once we have 2 points, further clicks are ignored — drag to adjust instead
+  if (S.pts.length >= 2) return;
+
+  S.pts.push(e.latlng);
+  const idx = S.pts.length - 1;
+  const color = idx === 0 ? '#f0c96a' : '#6ebf6e';
+
+  const marker = L.marker(e.latlng, {
+    icon: makeDotIcon(color),
+    draggable: true,
+    autoPan: true
+  }).addTo(map);
+
+  // On drag, recompute everything live
+  marker.on('drag', redrawLine);
+  marker.on('dragstart', () => { map.dragging.disable(); });
+  marker.on('dragend', () => { map.dragging.enable(); redrawLine(); });
+
+  S.dragMarkers[idx] = marker;
+  S.mapMarkers.push(marker);
+
+  const pfx = S.measuring==='tee' ? 't' : 'a';
+  if (idx === 0) {
+    document.getElementById(pfx+'d1').className = 'cd done';
+    document.getElementById(pfx+'s1').className = 'cd-sep done';
+    document.getElementById(pfx+'d2').className = 'cd active';
+  }
+
+  if (S.pts.length === 2) {
+    const yds = metersToYards(S.pts[0].distanceTo(S.pts[1]));
+
+    // Draw line
+    S.mapLine = L.polyline(S.pts, {color:'#d4a843', weight:2.5, opacity:0.9, dashArray:'7 5'}).addTo(map);
+    S.mapMarkers.push(S.mapLine);
+
+    // Label
+    const mid = L.latLng((S.pts[0].lat+S.pts[1].lat)/2, (S.pts[0].lng+S.pts[1].lng)/2);
+    S.labelMarker = L.marker(mid, {
+      icon: L.divIcon({
+        html: `<div style="background:rgba(11,24,11,0.9);border:1px solid #d4a843;color:#d4a843;font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:2px;padding:2px 8px;border-radius:4px;white-space:nowrap">${yds} yds</div>`,
+        iconSize:null, className:''
+      }),
+      interactive: false
+    }).addTo(map);
+    S.mapMarkers.push(S.labelMarker);
+
+    document.getElementById(pfx+'d2').className = 'cd done';
+
+    if (S.measuring === 'tee') {
+      S.h.teeYds = yds;
+      document.getElementById('tee-dist').textContent = yds;
+      document.getElementById('confirm-tee').disabled = false;
+    } else {
+      S.h.appYds = yds;
+      document.getElementById('app-dist').textContent = yds;
+      document.getElementById('confirm-app').disabled = false;
+    }
+  }
+}
+
+let _moveTimer;
+function mapMove(e) {
+  if (!S.measuring || S.pts.length !== 1) return;
+  clearTimeout(_moveTimer);
+  _moveTimer = setTimeout(() => {
+    const yds = metersToYards(S.pts[0].distanceTo(e.latlng));
+    const id = S.measuring === 'tee' ? 'tee-dist' : 'app-dist';
+    document.getElementById(id).textContent = yds;
+  }, 16);
+}
+
+function clearMapMeasure() {
+  S.pts = [];
+  S.measuring = null;
+  S.dragMarkers = [null, null];
+  S.labelMarker = null;
+  S.mapMarkers.forEach(l => { try { map.removeLayer(l); } catch(e){} });
+  S.mapMarkers = [];
+  S.mapLine = null;
+}
+
+function metersToYards(m) { return Math.round(m * 1.09361); }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SUMMARY
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function buildSummary() {
+  const holes = S.holes.filter(Boolean);
+  document.getElementById('sum-sub').textContent = (S.courseName||'Unknown Course') + ' · ' + S.courseDate;
+
+  let fw=0,fa=0,gr=0,ud=0,ua=0,pts=0,sc=0,on2h=0,on2a=0;
+  const clubs = {};
+  holes.forEach(h => {
+    sc += h.score; pts += h.putts;
+    if (h.par>=4) { fa++; if(h.fwyHit) fw++; }
+    if (h.girHit) gr++;
+    if (h.upDown!==null) { ua++; if(h.upDown) ud++; }
+    if (h.par===5 && h.on2Hit!==null) { on2a++; if(h.on2Hit) on2h++; }
+    if (h.appClub && h.appYds) { clubs[h.appClub] = clubs[h.appClub]||[]; clubs[h.appClub].push(h.appYds); }
+    if (h.teeClub && h.teeYds) { clubs['TEE: '+h.teeClub] = clubs['TEE: '+h.teeClub]||[]; clubs['TEE: '+h.teeClub].push(h.teeYds); }
+  });
+  const par = holes.reduce((s,h)=>s+h.par,0);
+  const diff = sc - par;
+
+  document.getElementById('sum-stats').innerHTML = [
+    {v: sc+(diff>=0?'  +'+diff:'  '+diff), l:'Score'},
+    {v: fa?Math.round(fw/fa*100)+'%':'—', l:'FWY%'},
+    {v: holes.length?Math.round(gr/holes.length*100)+'%':'—', l:'GIR%'},
+    {v: on2a?Math.round(on2h/on2a*100)+'%':'—', l:'On-2%'},
+    {v: pts, l:'Putts'},
+    {v: ua?Math.round(ud/ua*100)+'%':'—', l:'U&D%'},
+  ].map(s=>`<div class="ss"><div class="ss-v">${s.v}</div><div class="ss-l">${s.l}</div></div>`).join('');
+
+  document.getElementById('sum-tbody').innerHTML = holes.map(h => {
+    const d=h.score-h.par, ds=d===0?'E':(d>0?'+'+d:''+d);
+    const dc = d<0?'g':d>1?'r':'au';
+    const fwy = h.par>=4?(h.fwyHit?'<span class="g">✓</span>':'<span class="r">✗</span>'):'—';
+    const gir = h.girHit?'<span class="g">✓</span>':'<span class="r">✗</span>';
+    const miss = ({left:'L',right:'R',short:'S',long:'Lg'})[h.girDir||h.fwyDir||'']||'';
+    const ud = h.upDown===true?'<span class="g">✓</span>':h.upDown===false?'<span class="r">✗</span>':'—';
+    const on2 = h.par===5 ? (h.on2Hit===true?'<span class="g">✓</span>':h.on2Hit===false?'<span class="r">✗</span>':'—') : '—';
+    return `<tr>
+      <td class="n">${h.num}</td><td>${h.par}</td>
+      <td class="n ${dc}">${h.score}</td>
+      <td style="font-size:11px;color:var(--text);font-weight:600">${h.teeClub||'—'}</td>
+      <td>${fwy}</td><td>${gir}</td>
+      <td style="font-size:11px;color:var(--text)">${miss}</td>
+      <td>${on2}</td>
+      <td class="n au">${h.teeYds||'—'}</td>
+      <td class="n au">${h.appYds||'—'}</td>
+      <td style="font-size:11px;color:var(--text);font-weight:600">${h.appClub||'—'}</td>
+      <td>${ud}</td>
+    </tr>`;
+  }).join('');
+
+  const clubOrder = ['Driver','3 wood','3 iron','4 iron','5 iron','6 iron','7 iron','8 iron','9 iron','Pitching Wedge','A Wedge','54 Degree','58 Degree'];
+  const ordered = clubOrder.filter(c=>clubs[c]).concat(Object.keys(clubs).filter(c=>!clubOrder.includes(c)));
+  document.getElementById('sum-clubs').innerHTML = ordered.map(c => {
+    const avg = Math.round(clubs[c].reduce((s,v)=>s+v,0)/clubs[c].length);
+    return `<div class="cg-item"><div class="cg-club">${c}</div><div class="cg-dist">${avg}</div><div class="cg-shots">${clubs[c].length} shot${clubs[c].length>1?'s':''}</div></div>`;
+  }).join('');
+}
+
+function doExport() {
+  const h = S.holes.filter(Boolean);
+  if (!h.length) return;
+  let csv = 'Hole,Par,Score,Diff,Tee Club,FWY Hit,FWY Miss,GIR Hit,GIR Miss,On in 2,Tee Yds,App Yds,App Club,Up&Down,Putts\n';
+  h.forEach(r => {
+    csv += [r.num,r.par,r.score,r.score-r.par,
+      r.teeClub||'',
+      r.par>=4?(r.fwyHit?'Y':'N'):'N/A', r.fwyDir||'',
+      r.girHit?'Y':'N', r.girDir||'',
+      r.par===5?(r.on2Hit===true?'Y':r.on2Hit===false?'N':''):'N/A',
+      r.teeYds||'', r.appYds||'', r.appClub||'',
+      r.upDown===true?'Y':r.upDown===false?'N':'', r.putts
+    ].join(',') + '\n';
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'round_' + S.courseDate.replace(/[^a-z0-9]/gi,'_') + '.csv';
+  a.click();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TOAST
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(-16px)'; }, 2400);
+}
+</script>
+</body>
+</html>
