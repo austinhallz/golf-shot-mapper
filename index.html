@@ -974,20 +974,6 @@ function updateBackBar(id) {
   bar.style.display = noBack.includes(id) ? 'none' : 'flex';
 }
 
-  // sync hole number refs
-  document.querySelectorAll('.hnum').forEach(e => e.textContent = S.holeNum);
-  document.getElementById('s-hnum').textContent = S.holeNum;
-
-  // map hint
-  const measuring = (id === 'tee-dist' || id === 'app-dist');
-  document.getElementById('map-hint').style.display = measuring ? 'block' : 'none';
-  if (measuring) {
-    S.measuring = id === 'tee-dist' ? 'tee' : 'app';
-  } else {
-    S.measuring = null;
-  }
-}
-
 // SETUP
 let _par=4, _score=4, _putts=2;
 
