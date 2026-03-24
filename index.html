@@ -337,16 +337,6 @@ select.edit-inp option { background:var(--card); }
       <button onclick="goBackStep()" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;background:transparent;border:none;color:#fff;cursor:pointer;padding:2px 0;font-weight:600">← Back</button>
     </div>
 
-    <!-- STEP: holes (asked once at start) -->
-    <div class="ws" id="ws-holes">
-      <div class="ws-eye">Round Setup</div>
-      <div class="ws-title">How Many <span class="g">Holes?</span></div>
-      <div class="yn">
-        <button class="yn-y" onclick="setHoles(18)">18 Holes</button>
-        <button class="yn-n" style="background:rgba(212,168,67,0.15);color:var(--gold);border:1px solid rgba(212,168,67,0.4)" onclick="showStep('which-nine')">9 Holes</button>
-      </div>
-    </div>
-
     <!-- STEP: which-nine -->
     <div class="ws" id="ws-which-nine">
       <div class="ws-eye">Round Setup · 9 Holes</div>
@@ -790,8 +780,20 @@ function openMap() {
   showScreen('scr-map');
   initMap();
   document.getElementById('wizard').classList.add('show');
-  // Don't build strip yet — wait until we know 9 or 18
-  showStep('holes');
+  // S.totalHoles was already set by pickHoles() on the welcome screen
+  if (S.totalHoles === 9) {
+    // Ask which 9
+    buildStrip();
+    showStep('which-nine');
+  } else {
+    // 18 holes — go straight to hole 1 setup
+    S.startHole = 1;
+    S.holeNum = 1;
+    S.h = freshHole(1);
+    buildStrip();
+    loadSetupUI();
+    showStep('setup');
+  }
 }
 
 function pickHoles(n) {
@@ -968,7 +970,7 @@ function showStep(id) {
 function updateBackBar(id) {
   const bar = document.getElementById('wizard-back-bar');
   if (!bar) return;
-  const noBack = ['holes','which-nine','setup','done'];
+  const noBack = ['which-nine','setup','done'];
   bar.style.display = noBack.includes(id) ? 'none' : 'flex';
 }
 
