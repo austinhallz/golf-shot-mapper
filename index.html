@@ -254,6 +254,29 @@ table.st .n { font-family: 'Bebas Neue', cursive; font-size: 17px; letter-spacin
 .cg-club { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
 .cg-dist { font-family: 'Bebas Neue', cursive; font-size: 24px; color: var(--gold); letter-spacing: 2px; line-height: 1; }
 .cg-shots { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); }
+
+/* Edit modal */
+#edit-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9000; align-items:center; justify-content:center; padding:16px; }
+#edit-modal.open { display:flex; }
+.edit-box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; width:100%; max-width:420px; max-height:90vh; overflow-y:auto; }
+.edit-box h2 { font-family:'Bebas Neue',cursive; font-size:26px; letter-spacing:3px; color:var(--gold); margin-bottom:14px; }
+.edit-row { display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+.edit-col { flex:1; min-width:100px; }
+.edit-lbl { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:#fff; font-weight:700; margin-bottom:4px; }
+.edit-inp { width:100%; background:rgba(255,255,255,0.07); border:1px solid var(--border); border-radius:6px; color:#fff; font-family:'DM Sans',sans-serif; font-size:14px; padding:8px 10px; outline:none; }
+.edit-inp:focus { border-color:var(--gold); }
+.edit-seg { display:flex; gap:4px; }
+.edit-seg button { flex:1; font-family:'DM Mono',monospace; font-size:11px; font-weight:600; padding:8px 0; border:1px solid var(--border); border-radius:5px; background:transparent; color:#fff; cursor:pointer; transition:all 0.12s; }
+.edit-seg button.on { background:rgba(212,168,67,0.2); border-color:var(--gold); color:var(--gold); }
+.edit-seg button.gon { background:rgba(74,138,74,0.2); border-color:var(--bright); color:var(--bright); }
+.edit-seg button.ron { background:rgba(192,57,43,0.2); border-color:#e74c3c; color:#e74c3c; }
+select.edit-inp option { background:var(--card); }
+
+/* Back button always visible in wizard */
+#wizard-back { position:absolute; bottom:100%; left:0; right:0; display:none; }
+.back-bar { background:var(--panel); border-top:1px solid var(--border); padding:6px 14px; display:flex; align-items:center; }
+.back-bar button { font-family:'DM Mono',monospace; font-size:11px; letter-spacing:1px; text-transform:uppercase; background:transparent; border:none; color:var(--dim); cursor:pointer; padding:4px 0; }
+.back-bar button:hover { color:#fff; }
 </style>
 </head>
 <body>
@@ -309,6 +332,10 @@ table.st .n { font-family: 'Bebas Neue', cursive; font-size: 17px; letter-spacin
 
   <!-- Wizard panel -->
   <div id="wizard">
+    <!-- Persistent back bar -->
+    <div id="wizard-back-bar" style="display:none;background:rgba(255,255,255,0.04);border-bottom:1px solid var(--border);padding:6px 14px;">
+      <button onclick="goBackStep()" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;background:transparent;border:none;color:#fff;cursor:pointer;padding:2px 0;font-weight:600">← Back</button>
+    </div>
 
     <!-- STEP: holes (asked once at start) -->
     <div class="ws" id="ws-holes">
@@ -333,7 +360,10 @@ table.st .n { font-family: 'Bebas Neue', cursive; font-size: 17px; letter-spacin
     <!-- STEP: hole-setup -->
     <div class="ws" id="ws-setup">
       <div class="ws-eye">Hole Setup</div>
-      <div class="ws-title">Hole <span class="g" id="s-hnum">1</span></div>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px">
+        <div class="ws-title" style="margin-bottom:0">Hole <span class="g" id="s-hnum">1</span></div>
+        <span id="hole-yardage-hint" style="display:none;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:1px;color:var(--gold);background:rgba(212,168,67,0.12);border:1px solid rgba(212,168,67,0.3);border-radius:4px;padding:2px 8px"></span>
+      </div>
       <div class="setup-row">
         <div class="setup-col">
           <div class="ctl-lbl">Par</div>
@@ -489,6 +519,27 @@ table.st .n { font-family: 'Bebas Neue', cursive; font-size: 17px; letter-spacin
       </div>
     </div>
 
+    <!-- STEP: par5-shot3 (par 5, not on in 2) -->
+    <div class="ws" id="ws-par5-shot3">
+      <div class="ws-eye">Hole <span class="hnum">1</span> · Par 5 · 3rd Shot</div>
+      <div class="ws-title">3rd Shot <span class="g">Club?</span></div>
+      <div class="sel-wrap" style="margin-top:0;margin-bottom:14px">
+        <div class="sel-lbl">Club Used</div>
+        <select class="club-sel" id="shot3-club">
+          <option value="">— Select —</option>
+          <option>Driver</option><option>3 wood</option><option>5 wood</option>
+          <option>3 iron</option><option>4 iron</option><option>5 iron</option>
+          <option>6 iron</option><option>7 iron</option><option>8 iron</option>
+          <option>9 iron</option><option>Pitching Wedge</option><option>A Wedge</option>
+          <option>54 Degree</option><option>58 Degree</option>
+        </select>
+      </div>
+      <div class="act-row">
+        <button class="btn btn-sec" onclick="skipShot3()">Skip</button>
+        <button class="btn btn-pri" onclick="confirmShot3()">Next →</button>
+      </div>
+    </div>
+
     <!-- STEP: done -->
     <div class="ws" id="ws-done">
       <div class="ws-eye">Hole <span class="hnum">1</span> Complete</div>
@@ -513,7 +564,7 @@ table.st .n { font-family: 'Bebas Neue', cursive; font-size: 17px; letter-spacin
   <table class="st">
     <thead><tr>
       <th>#</th><th>Par</th><th>Score</th><th>Tee Club</th><th>FWY</th><th>GIR</th>
-      <th>Miss</th><th>On-2</th><th>Tee yds</th><th>App yds</th><th>App Club</th><th>U&D</th>
+      <th>Miss</th><th>On-2</th><th>Shot3</th><th>Tee yds</th><th>App yds</th><th>App Club</th><th>U&D</th><th></th>
     </tr></thead>
     <tbody id="sum-tbody"></tbody>
   </table>
@@ -521,6 +572,148 @@ table.st .n { font-family: 'Bebas Neue', cursive; font-size: 17px; letter-spacin
   <div class="act-row">
     <button class="btn btn-sec" style="flex:1;justify-content:center" onclick="closeSummary()">← Map</button>
     <button class="btn btn-pri" style="flex:1;justify-content:center" onclick="doExport()">Export CSV</button>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal">
+  <div class="edit-box">
+    <h2>Edit Hole <span id="edit-hole-num">1</span></h2>
+
+    <div class="edit-row">
+      <div class="edit-col">
+        <div class="edit-lbl">Par</div>
+        <div class="edit-seg">
+          <button id="ep3" onclick="editSetPar(3)">3</button>
+          <button id="ep4" onclick="editSetPar(4)" class="on">4</button>
+          <button id="ep5" onclick="editSetPar(5)">5</button>
+        </div>
+      </div>
+      <div class="edit-col">
+        <div class="edit-lbl">Score</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button onclick="editAdjScore(-1)" style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1">−</button>
+          <span id="edit-score" style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--gold);min-width:30px;text-align:center;letter-spacing:2px;line-height:1">4</span>
+          <button onclick="editAdjScore(1)" style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1">+</button>
+        </div>
+      </div>
+      <div class="edit-col">
+        <div class="edit-lbl">Putts</div>
+        <div class="edit-seg">
+          <button id="ept1" onclick="editSetPutts(1)">1</button>
+          <button id="ept2" onclick="editSetPutts(2)" class="on">2</button>
+          <button id="ept3" onclick="editSetPutts(3)">3</button>
+          <button id="ept4" onclick="editSetPutts(4)">4+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <div class="edit-col" id="edit-teeclub-wrap">
+        <div class="edit-lbl">Tee Club</div>
+        <select class="edit-inp" id="edit-teeclub">
+          <option value="">— Select —</option>
+          <option>Driver</option><option>3 wood</option><option>5 wood</option>
+          <option>2 iron</option><option>3 iron</option><option>4 iron</option>
+          <option>5 iron</option><option>6 iron</option><option>7 iron</option><option>Hybrid</option>
+        </select>
+      </div>
+      <div class="edit-col">
+        <div class="edit-lbl">Tee Distance (yds)</div>
+        <input class="edit-inp" type="number" id="edit-teeyds" placeholder="e.g. 245">
+      </div>
+    </div>
+
+    <div class="edit-row" id="edit-fwy-row">
+      <div class="edit-col">
+        <div class="edit-lbl">Fairway Hit?</div>
+        <div class="edit-seg">
+          <button id="efwy-y" onclick="editSetFwy(true)" class="gon">✓ Yes</button>
+          <button id="efwy-n" onclick="editSetFwy(false)" class="ron">✗ No</button>
+        </div>
+      </div>
+      <div class="edit-col" id="edit-fwydir-wrap">
+        <div class="edit-lbl">Miss Direction</div>
+        <select class="edit-inp" id="edit-fwydir">
+          <option value="">—</option>
+          <option value="left">Left</option><option value="right">Right</option>
+          <option value="short">Short</option><option value="long">Long</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <div class="edit-col">
+        <div class="edit-lbl">GIR Hit?</div>
+        <div class="edit-seg">
+          <button id="egir-y" onclick="editSetGir(true)" class="gon">✓ Yes</button>
+          <button id="egir-n" onclick="editSetGir(false)" class="ron">✗ No</button>
+        </div>
+      </div>
+      <div class="edit-col" id="edit-girdir-wrap">
+        <div class="edit-lbl">Miss Direction</div>
+        <select class="edit-inp" id="edit-girdir">
+          <option value="">—</option>
+          <option value="left">Left</option><option value="right">Right</option>
+          <option value="short">Short</option><option value="long">Long</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <div class="edit-col">
+        <div class="edit-lbl">Approach Club</div>
+        <select class="edit-inp" id="edit-appclub">
+          <option value="">— Select —</option>
+          <option>Driver</option><option>3 wood</option><option>3 iron</option>
+          <option>4 iron</option><option>5 iron</option><option>6 iron</option>
+          <option>7 iron</option><option>8 iron</option><option>9 iron</option>
+          <option>Pitching Wedge</option><option>A Wedge</option>
+          <option>54 Degree</option><option>58 Degree</option>
+        </select>
+      </div>
+      <div class="edit-col">
+        <div class="edit-lbl">Approach Distance (yds)</div>
+        <input class="edit-inp" type="number" id="edit-appyds" placeholder="e.g. 145">
+      </div>
+    </div>
+
+    <div class="edit-row" id="edit-on2-row" style="display:none">
+      <div class="edit-col">
+        <div class="edit-lbl">On in 2?</div>
+        <div class="edit-seg">
+          <button id="eon2-y" onclick="editSetOn2(true)" class="gon">✓ Yes</button>
+          <button id="eon2-n" onclick="editSetOn2(false)" class="ron">✗ No</button>
+          <button id="eon2-na" onclick="editSetOn2(null)">N/A</button>
+        </div>
+      </div>
+      <div class="edit-col" id="edit-shot3-wrap" style="display:none">
+        <div class="edit-lbl">3rd Shot Club</div>
+        <select class="edit-inp" id="edit-shot3club">
+          <option value="">— Select —</option>
+          <option>3 iron</option><option>4 iron</option><option>5 iron</option>
+          <option>6 iron</option><option>7 iron</option><option>8 iron</option>
+          <option>9 iron</option><option>Pitching Wedge</option><option>A Wedge</option>
+          <option>54 Degree</option><option>58 Degree</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <div class="edit-col">
+        <div class="edit-lbl">Up &amp; Down?</div>
+        <div class="edit-seg">
+          <button id="eud-y" onclick="editSetUD(true)" class="gon">✓ Yes</button>
+          <button id="eud-n" onclick="editSetUD(false)" class="ron">✗ No</button>
+          <button id="eud-na" onclick="editSetUD(null)">N/A</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="act-row" style="margin-top:16px">
+      <button class="btn btn-sec" style="flex:1;justify-content:center" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-pri" style="flex:1;justify-content:center" onclick="saveEditModal()">Save Changes ✓</button>
+    </div>
   </div>
 </div>
 
@@ -546,7 +739,26 @@ const S = {
 };
 
 function freshHole(n) {
-  return { num:n, par:4, score:4, putts:2, teeClub:'', fwyHit:null, fwyDir:null, teeYds:null, teeLandingLatlng:null, girHit:null, girDir:null, appYds:null, appClub:'', on2Hit:null, upDown:null };
+  return { num:n, par:4, score:4, putts:2, teeClub:'', fwyHit:null, fwyDir:null, teeYds:null, teeLandingLatlng:null, girHit:null, girDir:null, appYds:null, appClub:'', on2Hit:null, shot3Club:'', upDown:null };
+}
+
+// ── Step history for back-navigation within a hole ──
+const stepHistory = [];
+function pushStep(id) { stepHistory.push(id); }
+function goBackStep() {
+  if (stepHistory.length <= 1) { showStep('setup'); return; }
+  stepHistory.pop(); // remove current
+  const prev = stepHistory[stepHistory.length - 1];
+  // showStep without pushing again
+  document.querySelectorAll('.ws').forEach(w => w.classList.remove('cur'));
+  const el = document.getElementById('ws-' + prev);
+  if (el) el.classList.add('cur');
+  document.querySelectorAll('.hnum').forEach(e => e.textContent = S.holeNum);
+  document.getElementById('s-hnum').textContent = S.holeNum;
+  const measuring = (prev === 'tee-dist' || prev === 'app-dist');
+  document.getElementById('map-hint').style.display = measuring ? 'block' : 'none';
+  S.measuring = measuring ? (prev === 'tee-dist' ? 'tee' : 'app') : null;
+  updateBackBar(prev);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -609,9 +821,13 @@ function closeSummary() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SEARCH — Photon (CORS-friendly)
+// SEARCH — Photon (map) + GolfCourseAPI (pars)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const GCAPI_KEY = 'JPDFW3W76RV6YWVUMYZYCX4G7U';
 let _results = [], _timer;
+// Stored pars from API: array of 18 numbers indexed 0–17, or null
+S.coursePars = null;
+S.courseYardages = null;
 
 function onType() {
   clearTimeout(_timer);
@@ -658,14 +874,64 @@ function renderDrop(q) {
   dd.classList.add('open');
 }
 
-function pickResult(i) {
+async function pickResult(i) {
   const f = _results[i];
   const [lng, lat] = f.geometry.coordinates;
   map.setView([lat,lng], 17);
   S.courseName = f.properties.name || '';
+  S.coursePars = null;
+  S.courseYardages = null;
   document.getElementById('search-input').value = S.courseName;
   closeDrop();
-  toast('📍 ' + S.courseName);
+  toast('📍 ' + S.courseName + ' — loading scorecard…');
+  // Fire GolfCourseAPI lookup in background
+  fetchCourseData(S.courseName);
+}
+
+async function fetchCourseData(name) {
+  try {
+    // Step 1: search for the course
+    const searchUrl = `https://api.golfcourseapi.com/v1/search?search_query=${encodeURIComponent(name)}`;
+    const sr = await fetch(searchUrl, { headers: { 'Authorization': 'Bearer ' + GCAPI_KEY } });
+    if (!sr.ok) { toast('📍 ' + name + ' (scorecard unavailable)'); return; }
+    const sd = await sr.json();
+    const courses = sd.courses || [];
+    if (!courses.length) { toast('📍 ' + name + ' (no scorecard found)'); return; }
+
+    // Step 2: fetch the first matching course detail
+    const courseId = courses[0].id;
+    const cr = await fetch(`https://api.golfcourseapi.com/v1/courses/${courseId}`, {
+      headers: { 'Authorization': 'Bearer ' + GCAPI_KEY }
+    });
+    if (!cr.ok) { toast('📍 ' + name); return; }
+    const cd = await cr.json();
+
+    // Extract hole pars from the tees array (use first tee set available)
+    const tees = cd.tees;
+    let holes = null;
+    if (tees && tees.male && tees.male.length) {
+      holes = tees.male[0].holes;
+    } else if (tees && tees.female && tees.female.length) {
+      holes = tees.female[0].holes;
+    }
+
+    if (holes && holes.length >= 9) {
+      // holes is array of {hole_number, par, yardage}
+      S.coursePars = new Array(18).fill(null);
+      S.courseYardages = new Array(18).fill(null);
+      holes.forEach(h => {
+        if (h.hole_number >= 1 && h.hole_number <= 18) {
+          S.coursePars[h.hole_number - 1] = h.par;
+          S.courseYardages[h.hole_number - 1] = h.yardage;
+        }
+      });
+      toast('✅ Scorecard loaded for ' + (cd.course_name || name));
+    } else {
+      toast('📍 ' + name + ' (scorecard unavailable)');
+    }
+  } catch(e) {
+    toast('📍 ' + name + ' (offline — enter pars manually)');
+  }
 }
 
 function manualCoords() {
@@ -687,6 +953,24 @@ function showStep(id) {
   document.querySelectorAll('.ws').forEach(w => w.classList.remove('cur'));
   const el = document.getElementById('ws-' + id);
   if (el) el.classList.add('cur');
+  document.querySelectorAll('.hnum').forEach(e => e.textContent = S.holeNum);
+  document.getElementById('s-hnum').textContent = S.holeNum;
+  const measuring = (id === 'tee-dist' || id === 'app-dist');
+  document.getElementById('map-hint').style.display = measuring ? 'block' : 'none';
+  if (measuring) { S.measuring = id === 'tee-dist' ? 'tee' : 'app'; }
+  else { S.measuring = null; }
+  // track history (reset on setup)
+  if (id === 'setup') { stepHistory.length = 0; }
+  pushStep(id);
+  updateBackBar(id);
+}
+
+function updateBackBar(id) {
+  const bar = document.getElementById('wizard-back-bar');
+  if (!bar) return;
+  const noBack = ['holes','which-nine','setup','done'];
+  bar.style.display = noBack.includes(id) ? 'none' : 'flex';
+}
 
   // sync hole number refs
   document.querySelectorAll('.hnum').forEach(e => e.textContent = S.holeNum);
@@ -845,6 +1129,26 @@ function afterApp() {
 // ON IN 2 (par 5)
 function ansOn2(hit) {
   S.h.on2Hit = hit;
+  if (!hit) {
+    // Not on in 2 — ask for 3rd shot club
+    showStep('par5-shot3');
+  } else {
+    // On in 2 — go to GIR/updown
+    if (S.h.girHit === false) showStep('updown');
+    else saveHole();
+  }
+}
+
+// PAR 5 SHOT 3
+function confirmShot3() {
+  const club = document.getElementById('shot3-club').value;
+  if (!club) { toast('Please select a club first'); return; }
+  S.h.shot3Club = club;
+  if (S.h.girHit === false) showStep('updown');
+  else saveHole();
+}
+function skipShot3() {
+  S.h.shot3Club = '';
   if (S.h.girHit === false) showStep('updown');
   else saveHole();
 }
@@ -855,6 +1159,8 @@ function ansUD(v) { S.h.upDown = v; saveHole(); }
 // SAVE & NEXT
 function saveHole() {
   S.holes[S.holeNum - 1] = { ...S.h };
+  // Persist to localStorage after every hole
+  persistRound();
   buildSummaryMini();
   const lastHole = (S.startHole || 1) + S.totalHoles - 1;
   const last = S.holeNum >= lastHole;
@@ -864,6 +1170,35 @@ function saveHole() {
   updateStrip();
   showStep('done');
   toast('Hole ' + S.holeNum + ' saved ✓');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DATA PERSISTENCE — localStorage
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const ROUNDS_KEY = 'shotmap_rounds_v1';
+
+function persistRound() {
+  try {
+    const rounds = getSavedRounds();
+    // Replace or add current round (identified by date+course)
+    const id = S.courseDate + '|' + (S.courseName || 'Unknown');
+    const existing = rounds.findIndex(r => r.id === id);
+    const record = {
+      id, course: S.courseName || 'Unknown Course', date: S.courseDate,
+      totalHoles: S.totalHoles, startHole: S.startHole,
+      holes: S.holes.filter(Boolean),
+      savedAt: new Date().toISOString()
+    };
+    if (existing >= 0) rounds[existing] = record;
+    else rounds.unshift(record);
+    // Keep last 50 rounds
+    localStorage.setItem(ROUNDS_KEY, JSON.stringify(rounds.slice(0, 50)));
+  } catch(e) { /* storage full or unavailable */ }
+}
+
+function getSavedRounds() {
+  try { return JSON.parse(localStorage.getItem(ROUNDS_KEY) || '[]'); }
+  catch(e) { return []; }
 }
 
 function buildSummaryMini() {
@@ -912,13 +1247,32 @@ function redoHole() {
 }
 
 function loadSetupUI() {
-  document.getElementById('s-hnum').textContent = S.holeNum;
+  const hNum = S.holeNum;
+  document.getElementById('s-hnum').textContent = hNum;
+
+  // Auto-fill par from API scorecard if available and hole not already saved
+  if (S.coursePars && S.coursePars[hNum - 1] !== null && !S.holes[hNum - 1]) {
+    const apiPar = S.coursePars[hNum - 1];
+    S.h.par = apiPar;
+    S.h.score = apiPar;
+    _par = apiPar;
+    _score = apiPar;
+  }
+
   document.getElementById('s-score').textContent = S.h.score;
   setPar(S.h.par);
   setPutts(S.h.putts);
   document.getElementById('back-btn').style.display = S.holeNum > S.startHole ? 'flex' : 'none';
   const tc = document.getElementById('tee-club');
   if (tc) tc.value = S.h.teeClub || '';
+
+  // Show yardage hint from API if available
+  const yardEl = document.getElementById('hole-yardage-hint');
+  if (yardEl) {
+    const yds = S.courseYardages && S.courseYardages[hNum - 1];
+    yardEl.textContent = yds ? yds + ' yds' : '';
+    yardEl.style.display = yds ? 'inline-block' : 'none';
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1128,17 +1482,19 @@ function buildSummary() {
     const miss = ({left:'L',right:'R',short:'S',long:'Lg'})[h.girDir||h.fwyDir||'']||'';
     const ud = h.upDown===true?'<span class="g">✓</span>':h.upDown===false?'<span class="r">✗</span>':'—';
     const on2 = h.par===5 ? (h.on2Hit===true?'<span class="g">✓</span>':h.on2Hit===false?'<span class="r">✗</span>':'—') : '—';
+    const shot3 = h.par===5&&h.shot3Club ? `<span style="font-size:10px">${h.shot3Club.replace(' ','&nbsp;')}</span>` : '—';
     return `<tr>
       <td class="n">${h.num}</td><td>${h.par}</td>
       <td class="n ${dc}">${h.score}</td>
       <td style="font-size:11px;color:var(--text);font-weight:600">${h.teeClub||'—'}</td>
       <td>${fwy}</td><td>${gir}</td>
       <td style="font-size:11px;color:var(--text)">${miss}</td>
-      <td>${on2}</td>
+      <td>${on2}</td><td>${shot3}</td>
       <td class="n au">${h.teeYds||'—'}</td>
       <td class="n au">${h.appYds||'—'}</td>
       <td style="font-size:11px;color:var(--text);font-weight:600">${h.appClub||'—'}</td>
       <td>${ud}</td>
+      <td><button onclick="openEditModal(${h.num})" style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;background:rgba(212,168,67,0.15);border:1px solid rgba(212,168,67,0.4);color:var(--gold);border-radius:4px;padding:3px 7px;cursor:pointer;">Edit</button></td>
     </tr>`;
   }).join('');
 
@@ -1153,13 +1509,14 @@ function buildSummary() {
 function doExport() {
   const h = S.holes.filter(Boolean);
   if (!h.length) return;
-  let csv = 'Hole,Par,Score,Diff,Tee Club,FWY Hit,FWY Miss,GIR Hit,GIR Miss,On in 2,Tee Yds,App Yds,App Club,Up&Down,Putts\n';
+  let csv = 'Hole,Par,Score,Diff,Tee Club,FWY Hit,FWY Miss,GIR Hit,GIR Miss,On in 2,Shot 3 Club,Tee Yds,App Yds,App Club,Up&Down,Putts\n';
   h.forEach(r => {
     csv += [r.num,r.par,r.score,r.score-r.par,
       r.teeClub||'',
       r.par>=4?(r.fwyHit?'Y':'N'):'N/A', r.fwyDir||'',
       r.girHit?'Y':'N', r.girDir||'',
       r.par===5?(r.on2Hit===true?'Y':r.on2Hit===false?'N':''):'N/A',
+      r.shot3Club||'',
       r.teeYds||'', r.appYds||'', r.appClub||'',
       r.upDown===true?'Y':r.upDown===false?'N':'', r.putts
     ].join(',') + '\n';
@@ -1169,6 +1526,131 @@ function doExport() {
   a.download = 'round_' + S.courseDate.replace(/[^a-z0-9]/gi,'_') + '.csv';
   a.click();
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EDIT MODAL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _editHoleNum = null;
+let _editData = {};
+
+function openEditModal(holeNum) {
+  const h = S.holes[holeNum - 1];
+  if (!h) return;
+  _editHoleNum = holeNum;
+  _editData = { ...h };
+
+  document.getElementById('edit-hole-num').textContent = holeNum;
+  document.getElementById('edit-score').textContent = h.score;
+  document.getElementById('edit-teeyds').value = h.teeYds || '';
+  document.getElementById('edit-appyds').value = h.appYds || '';
+  document.getElementById('edit-teeclub').value = h.teeClub || '';
+  document.getElementById('edit-appclub').value = h.appClub || '';
+  document.getElementById('edit-fwydir').value = h.fwyDir || '';
+  document.getElementById('edit-girdir').value = h.girDir || '';
+  if (document.getElementById('edit-shot3club')) document.getElementById('edit-shot3club').value = h.shot3Club || '';
+
+  // Par buttons
+  editSetPar(h.par, true);
+  editSetPutts(h.putts, true);
+  editSetFwy(h.fwyHit, true);
+  editSetGir(h.girHit, true);
+  editSetOn2(h.on2Hit, true);
+  editSetUD(h.upDown, true);
+
+  // Show/hide par3 rows
+  document.getElementById('edit-fwy-row').style.display = h.par === 3 ? 'none' : 'flex';
+  document.getElementById('edit-teeclub-wrap').style.display = h.par === 3 ? 'none' : 'block';
+  document.getElementById('edit-on2-row').style.display = h.par === 5 ? 'flex' : 'none';
+
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  _editHoleNum = null;
+}
+
+function editAdjScore(d) {
+  _editData.score = Math.max(1, (_editData.score || _editData.par) + d);
+  document.getElementById('edit-score').textContent = _editData.score;
+}
+
+function editSetPar(p, silent) {
+  _editData.par = p;
+  ['3','4','5'].forEach(n => {
+    const b = document.getElementById('ep' + n);
+    if (b) b.className = n == p ? 'on' : '';
+  });
+  document.getElementById('edit-fwy-row').style.display = p === 3 ? 'none' : 'flex';
+  document.getElementById('edit-teeclub-wrap').style.display = p === 3 ? 'none' : 'block';
+  document.getElementById('edit-on2-row').style.display = p === 5 ? 'flex' : 'none';
+}
+
+function editSetPutts(p, silent) {
+  _editData.putts = p;
+  [1,2,3,4].forEach(n => {
+    const b = document.getElementById('ept' + n);
+    if (b) b.className = n === p ? 'on' : '';
+  });
+}
+
+function editSetFwy(v, silent) {
+  _editData.fwyHit = v;
+  const yn = document.getElementById('efwy-y'), nn = document.getElementById('efwy-n');
+  if (yn) yn.className = v === true ? 'gon' : '';
+  if (nn) nn.className = v === false ? 'ron' : '';
+  const dw = document.getElementById('edit-fwydir-wrap');
+  if (dw) dw.style.display = v === false ? 'block' : 'none';
+}
+
+function editSetGir(v, silent) {
+  _editData.girHit = v;
+  const yn = document.getElementById('egir-y'), nn = document.getElementById('egir-n');
+  if (yn) yn.className = v === true ? 'gon' : '';
+  if (nn) nn.className = v === false ? 'ron' : '';
+  const dw = document.getElementById('edit-girdir-wrap');
+  if (dw) dw.style.display = v === false ? 'block' : 'none';
+}
+
+function editSetOn2(v, silent) {
+  _editData.on2Hit = v;
+  const yn = document.getElementById('eon2-y'), nn = document.getElementById('eon2-n'), na = document.getElementById('eon2-na');
+  if (yn) yn.className = v === true ? 'gon' : '';
+  if (nn) nn.className = v === false ? 'ron' : '';
+  if (na) na.className = v === null ? 'on' : '';
+  const sw = document.getElementById('edit-shot3-wrap');
+  if (sw) sw.style.display = v === false ? 'block' : 'none';
+}
+
+function editSetUD(v, silent) {
+  _editData.upDown = v;
+  const yn = document.getElementById('eud-y'), nn = document.getElementById('eud-n'), na = document.getElementById('eud-na');
+  if (yn) yn.className = v === true ? 'gon' : '';
+  if (nn) nn.className = v === false ? 'ron' : '';
+  if (na) na.className = v === null ? 'on' : '';
+}
+
+function saveEditModal() {
+  if (_editHoleNum === null) return;
+  _editData.teeYds = parseInt(document.getElementById('edit-teeyds').value) || null;
+  _editData.appYds = parseInt(document.getElementById('edit-appyds').value) || null;
+  _editData.teeClub = document.getElementById('edit-teeclub').value;
+  _editData.appClub = document.getElementById('edit-appclub').value;
+  _editData.fwyDir = document.getElementById('edit-fwydir').value || null;
+  _editData.girDir = document.getElementById('edit-girdir').value || null;
+  const s3 = document.getElementById('edit-shot3club');
+  if (s3) _editData.shot3Club = s3.value;
+  S.holes[_editHoleNum - 1] = { ..._editData };
+  persistRound();
+  closeEditModal();
+  buildSummary(); // refresh table
+  toast('Hole ' + _editHoleNum + ' updated ✓');
+}
+
+// Close edit modal on backdrop click
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditModal();
+});
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // TOAST
