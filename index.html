@@ -987,7 +987,7 @@ function setPar(p) {
 function adjScore(d) { _score = Math.max(1,_score+d); S.h.score=_score; document.getElementById('s-score').textContent=_score; }
 function setPutts(p) {
   _putts = p; S.h.putts = p;
-  [1,2,3,4].forEach(n => document.getElementById('pt'+n).className = 'seg-btn'+(n==p?' on':''));
+  [0,1,2,3,4].forEach(n => document.getElementById('pt'+n).className = 'seg-btn'+(n==p?' on':''));
 }
 function nextFromSetup() {
   S.h.par = _par; S.h.score = _score; S.h.putts = _putts;
