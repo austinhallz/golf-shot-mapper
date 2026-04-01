@@ -850,7 +850,7 @@ async function doSearch(q) {
   const btn = document.getElementById('find-btn');
   btn.textContent = '…';
   try {
-    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q+' golf')}&limit=6&lang=en`;
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q+' golf')}&limit=6&lang=en&bbox=-114.05,37.0,-109.05,42.0`;
     const r = await fetch(url);
     const d = await r.json();
     _results = (d.features || []).filter(f => f.properties.name);
